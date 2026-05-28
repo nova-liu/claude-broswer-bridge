@@ -109,15 +109,15 @@ This builds both the bridge (ESM for Node.js) and the extension (IIFE for Chrome
 ### 2. Start the bridge
 
 ```bash
-node bridge/dist/index.js
+node bridge/dist/index.mjs
 ```
 
 The bridge launches `claude` CLI and listens on `ws://localhost:7862`. Use an environment variable or CLI flag for a different port:
 
 ```bash
-node bridge/dist/index.js --port 9000
+node bridge/dist/index.mjs --port 9000
 # or
-CLAUDE_BROWSER_PORT=9000 node bridge/dist/index.js
+CLAUDE_BROWSER_PORT=9000 node bridge/dist/index.mjs
 ```
 
 ### 3. Load the Chrome extension
