@@ -1,0 +1,1 @@
+Use the scroll MCP tool to scroll the page in the direction the user specified (up or down). Then use page_snapshot to show the updated view. Describe what's now visible.

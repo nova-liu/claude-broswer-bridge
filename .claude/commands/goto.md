@@ -1,0 +1,1 @@
+Use the navigate MCP tool to go to the URL the user specified. Then use page_snapshot to show what loaded. Describe the page briefly.

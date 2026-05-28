@@ -1,0 +1,1 @@
+Use the page_snapshot MCP tool first to see the current page with indexed elements. Then use click_element to click the element the user specified (by description or index). Confirm what was clicked and show any resulting page change.
