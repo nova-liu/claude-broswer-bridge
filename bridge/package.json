@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "bin": {
-    "claude-browser-bridge": "./dist/index.js"
+    "claude-browser-bridge": "./dist/index.mjs"
   },
   "scripts": {
     "build": "tsup",

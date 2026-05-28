@@ -1,0 +1,1 @@
+Use the page_snapshot MCP tool to see the user's current browser page. Describe what you see briefly — page title, main content area, key interactive elements. Then ask what they need help with on this page.
