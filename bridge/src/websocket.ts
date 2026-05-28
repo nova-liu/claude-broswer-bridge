@@ -1,9 +1,10 @@
 import { WebSocketServer, WebSocket } from 'ws';
+import { IncomingMessage } from 'http';
 import { IPty } from 'node-pty';
 
 // Frame protocol:
 // 0x00 + data = terminal data (binary)
-// 0x01 + JSON = control message (resize, tool call, tool response)
+// 0x01 + JSON = control message (resize, tool_call, tool_response)
 
 export const FRAME_TERMINAL = 0x00;
 export const FRAME_CONTROL = 0x01;
@@ -13,13 +14,42 @@ export interface ControlMessage {
   [key: string]: unknown;
 }
 
+// Track extension connection (the one that renders terminal + executes DOM tools)
+let extensionClient: WebSocket | null = null;
+
 export function createWebSocketServer(port: number, ptyProcess: IPty): WebSocketServer {
   const wss = new WebSocketServer({ port });
 
-  wss.on('connection', (ws: WebSocket) => {
-    console.log('Extension connected');
+  wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+    const url = req.url || '/';
 
-    // Forward PTY output to WebSocket as terminal frames
+    if (url === '/mcp') {
+      // MCP client connection — only sends tool_calls, receives tool_responses
+      console.log('  MCP client connected');
+      ws.on('message', (raw: Buffer) => {
+        if (raw[0] !== FRAME_CONTROL) return;
+        const msg: ControlMessage = JSON.parse(raw.subarray(1).toString());
+        if (msg.type === 'tool_call') {
+          // Forward to extension
+          if (extensionClient?.readyState === WebSocket.OPEN) {
+            extensionClient.send(raw);
+          } else {
+            // Send error back
+            const errResp = Buffer.from('\x01' + JSON.stringify({
+              type: 'tool_response', id: msg.id, error: 'No extension connected'
+            }));
+            ws.send(errResp);
+          }
+        }
+      });
+      ws.on('close', () => console.log('  MCP client disconnected'));
+      return;
+    }
+
+    // Default: extension/terminal connection
+    extensionClient = ws;
+    console.log('  Extension connected');
+
     const dataHandler = ptyProcess.onData((data: string) => {
       if (ws.readyState === WebSocket.OPEN) {
         const payload = Buffer.alloc(1 + Buffer.byteLength(data));
@@ -39,16 +69,16 @@ export function createWebSocketServer(port: number, ptyProcess: IPty): WebSocket
       const data = raw.subarray(1);
 
       if (frameType === FRAME_TERMINAL) {
-        // Keyboard input from extension → PTY
         ptyProcess.write(data.toString());
       } else if (frameType === FRAME_CONTROL) {
         const msg: ControlMessage = JSON.parse(data.toString());
-        handleControlMessage(msg, ptyProcess, ws);
+        handleControlMessage(msg, ptyProcess, wss);
       }
     });
 
     ws.on('close', () => {
-      console.log('Extension disconnected');
+      console.log('  Extension disconnected');
+      extensionClient = null;
       dataHandler.dispose();
       exitHandler.dispose();
     });
@@ -57,48 +87,19 @@ export function createWebSocketServer(port: number, ptyProcess: IPty): WebSocket
   return wss;
 }
 
-function handleControlMessage(msg: ControlMessage, ptyProcess: IPty, ws: WebSocket) {
+function handleControlMessage(msg: ControlMessage, ptyProcess: IPty, wss: WebSocketServer) {
   switch (msg.type) {
     case 'resize':
       ptyProcess.resize(msg.cols as number, msg.rows as number);
       break;
     case 'tool_response':
-      // MCP tool response from extension — handled by mcp-server via event
-      toolResponseHandlers.get(msg.id as string)?.(msg);
-      toolResponseHandlers.delete(msg.id as string);
+      // Forward tool response to MCP client(s)
+      const respPayload = Buffer.from('\x01' + JSON.stringify(msg));
+      for (const client of wss.clients) {
+        if (client !== extensionClient && client.readyState === WebSocket.OPEN) {
+          client.send(respPayload);
+        }
+      }
       break;
   }
-}
-
-// Tool call/response coordination
-type ResponseHandler = (msg: ControlMessage) => void;
-const toolResponseHandlers = new Map<string, ResponseHandler>();
-
-export function sendToolCall(wss: WebSocketServer, id: string, tool: string, args: Record<string, unknown>): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      toolResponseHandlers.delete(id);
-      reject(new Error(`Tool call ${tool} timed out after 30s`));
-    }, 30000);
-
-    toolResponseHandlers.set(id, (msg) => {
-      clearTimeout(timeout);
-      if (msg.error) reject(new Error(msg.error as string));
-      else resolve(msg.result);
-    });
-
-    // Send to first connected client
-    for (const client of wss.clients) {
-      if (client.readyState === WebSocket.OPEN) {
-        const payload = Buffer.from(
-          '\x01' + JSON.stringify({ type: 'tool_call', id, tool, args })
-        );
-        client.send(payload);
-        return;
-      }
-    }
-    clearTimeout(timeout);
-    toolResponseHandlers.delete(id);
-    reject(new Error('No extension connected'));
-  });
 }
