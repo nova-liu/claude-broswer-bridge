@@ -1,3 +1,1 @@
-The MCP browser tools are configured in bridge.mcp.json. If tools are not available, load that config first.
-
 Use the evaluate_js MCP tool to execute the JavaScript expression the user provided in the current page context. Report the result. If it's a read operation (e.g. reading cookies, localStorage, DOM state), show the value. If it's an action, describe what happened.

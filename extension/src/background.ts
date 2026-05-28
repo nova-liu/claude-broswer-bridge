@@ -29,7 +29,6 @@ async function ensureAttached(tabId: number): Promise<void> {
         sendCdp(tabId, 'Page.enable'),
         sendCdp(tabId, 'Runtime.enable'),
         sendCdp(tabId, 'Network.enable'),
-        sendCdp(tabId, 'Console.enable'),
         sendCdp(tabId, 'DOM.enable'),
       ]).then(() => resolve()).catch(() => resolve()); // non-fatal
     });
@@ -85,10 +84,21 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
   const tabId = source.tabId;
   if (tabId == null) return;
 
-  if (method === 'Console.messageAdded') {
-    const msg = (params as { message: { level: string; text: string; url?: string; line?: number } }).message;
+  if (method === 'Runtime.consoleAPICalled') {
+    const p = params as { type: string; args: Array<{ value?: unknown; description?: string; type?: string }>; stackTrace?: { callFrames: Array<{ url: string; lineNumber: number }> } };
+    const text = p.args.map(a => String(a.value ?? a.description ?? a.type ?? '')).join(' ');
+    const frame = p.stackTrace?.callFrames?.[0];
     const buf = consoleBuffers.get(tabId) ?? [];
-    buf.push({ level: msg.level, text: msg.text, url: msg.url, line: msg.line, timestamp: Date.now() });
+    buf.push({ level: p.type, text, url: frame?.url, line: frame?.lineNumber, timestamp: Date.now() });
+    if (buf.length > MAX_BUFFER) buf.splice(0, buf.length - MAX_BUFFER);
+    consoleBuffers.set(tabId, buf);
+  }
+
+  if (method === 'Runtime.exceptionThrown') {
+    const p = params as { exceptionDetails: { text?: string; exception?: { description?: string; value?: unknown }; url?: string; lineNumber?: number } };
+    const text = p.exceptionDetails.exception?.description ?? p.exceptionDetails.text ?? 'Unknown exception';
+    const buf = consoleBuffers.get(tabId) ?? [];
+    buf.push({ level: 'error', text, url: p.exceptionDetails.url, line: p.exceptionDetails.lineNumber, timestamp: Date.now() });
     if (buf.length > MAX_BUFFER) buf.splice(0, buf.length - MAX_BUFFER);
     consoleBuffers.set(tabId, buf);
   }

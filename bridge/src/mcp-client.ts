@@ -6,6 +6,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { WebSocket } from 'ws';
 import { z } from 'zod';
+import { writeFile, mkdir } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 const port = parseInt(process.env.CLAUDE_BROWSER_PORT || '7862', 10);
 let ws: WebSocket;
@@ -69,7 +72,21 @@ async function main() {
 
   server.tool('page_screenshot', 'Capture a screenshot of the current page', {}, async () => {
     const result = await callTool('page_screenshot', {});
-    return { content: [{ type: 'text', text: result as string }] };
+    const dataUri = result as string;
+
+    // Strip data URI prefix and decode base64
+    const base64 = dataUri.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64, 'base64');
+
+    // Save to ~/Downloads with timestamp
+    const downloadsDir = join(homedir(), 'Downloads');
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filePath = join(downloadsDir, `screenshot-${ts}.png`);
+
+    await mkdir(downloadsDir, { recursive: true });
+    await writeFile(filePath, buffer);
+
+    return { content: [{ type: 'text', text: `Screenshot saved to ${filePath} (${(buffer.length / 1024).toFixed(0)} KB)` }] };
   });
 
   server.tool('select_text', 'Extract text content matching a CSS selector',
