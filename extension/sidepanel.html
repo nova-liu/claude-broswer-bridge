@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Claude Browser Bridge</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; background: #1e1e1e; overflow: hidden; }
+    #terminal { height: 100%; width: 100%; }
+    #status {
+      position: absolute; top: 4px; right: 8px;
+      font: 11px system-ui; color: #888; z-index: 10;
+    }
+    #status.connected { color: #4a4; }
+    #status.disconnected { color: #a44; }
+  </style>
+</head>
+<body>
+  <div id="status" class="disconnected">Disconnected</div>
+  <div id="terminal"></div>
+  <script type="module" src="dist/sidepanel.js"></script>
+</body>
+</html>
