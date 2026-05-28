@@ -51,7 +51,11 @@ async function connect() {
       const msg = JSON.parse(new TextDecoder().decode(payload));
       // Tool calls from bridge → forward to background script
       if (msg.type === 'tool_call') {
-        chrome.runtime.sendMessage(msg);
+        chrome.runtime.sendMessage(msg, (response) => {
+          if (response) {
+            sendControl(response);
+          }
+        });
       }
     }
   };
@@ -105,12 +109,5 @@ const resizeObserver = new ResizeObserver(() => {
   sendControl({ type: 'resize', cols: term.cols, rows: term.rows });
 });
 resizeObserver.observe(document.getElementById('terminal')!);
-
-// Listen for tool responses from background script
-chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'tool_response') {
-    sendControl(msg);
-  }
-});
 
 connect();

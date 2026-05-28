@@ -2,7 +2,7 @@
     "mcpServers": {
       "browser": {
         "command": "node",
-        "args": ["/Users/solar/projects/nova/claude-browser-bridge/bridge/dist/mcp-client.mjs"]
+        "args": ["/Users/nova/code/nova/claude-broswer-bridge/bridge/dist/mcp-client.mjs"]
       }
     }
   }
