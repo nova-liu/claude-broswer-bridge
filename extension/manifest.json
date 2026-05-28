@@ -3,19 +3,13 @@
   "name": "Claude Browser Bridge",
   "version": "0.1.0",
   "description": "Claude Code TUI in your browser with page reading and actions",
-  "permissions": ["activeTab", "sidePanel", "storage"],
+  "permissions": ["activeTab", "sidePanel", "storage", "debugger", "tabs"],
   "side_panel": {
     "default_path": "sidepanel.html"
   },
   "background": {
     "service_worker": "dist/background.js"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["dist/content.js"]
-    }
-  ],
   "action": {
     "default_title": "Open Claude Browser Bridge"
   }

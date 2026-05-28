@@ -4,7 +4,6 @@ import { copyFileSync } from 'fs';
 export default defineConfig({
   entry: {
     background: 'src/background.ts',
-    content: 'src/content.ts',
     sidepanel: 'src/sidepanel.ts',
   },
   format: ['iife'],
